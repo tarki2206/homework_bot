@@ -1,5 +1,6 @@
 import inspect
 import logging
+import platform
 import re
 import time
 from http import HTTPStatus
@@ -581,8 +582,8 @@ class TestHomework:
             'get',
             mock_response_get_with_new_status
         )
-
-        homework_module.main = utils.with_timeout(homework_module.main)
+        if platform.system() != 'Windows':
+            homework_module.main = utils.with_timeout(homework_module.main)
 
     def test_main_without_env_vars_raise_exception(
             self, caplog, monkeypatch, random_timestamp, current_timestamp,
