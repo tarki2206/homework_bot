@@ -129,7 +129,9 @@ def main():
                 if response:
                     current_status = response['homeworks']
 
-                    if current_status != previous_status:
+                    if current_status == previous_status:
+                        text = "Status didn't change"
+                    elif current_status != previous_status:
                         bot = Bot(token=TELEGRAM_TOKEN)
                         homework = current_status[0]
                         text = parse_status(homework)
