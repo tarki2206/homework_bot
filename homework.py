@@ -136,7 +136,8 @@ def main():
                         send_message(bot, text)
 
                         try:
-                            bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text)
+                            bot.send_message(
+                                chat_id=TELEGRAM_CHAT_ID, text=text)
                             logger.debug('Message was sent second time')
                             raise Exception('error')
                         except telegram.TelegramError as error:
