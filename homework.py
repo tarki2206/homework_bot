@@ -62,14 +62,11 @@ def send_message(bot, message):
     """Function for sending message."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logger.debug(f'Message sent: {message}')
-        raise Exception('Message sent')
+        logger.debug('Сообщение отправлено')
 
-    except telegram.TelegramError:
-        message_error = f"Message wasn't sent: {message}"
-        logger.error(message_error)
-    except Exception as e:
-        logger.error(f'{e}')
+    except Exception as error:
+        logger.error(f'При отправке сообщения произошла ошибка {error}')
+        return False
 
 
 def get_api_answer(timestamp):
@@ -131,15 +128,21 @@ def main():
                 check_response(response)
                 if response:
                     current_status = response['homeworks']
-                    print(current_status)
+
                     if current_status != previous_status:
                         bot = Bot(token=TELEGRAM_TOKEN)
                         homework = current_status[0]
                         text = parse_status(homework)
                         send_message(bot, text)
-                        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text)
-                        logger.debug('Message was sent second time')
-                    previous_status = current_status
+                        try:
+                            bot.send_message(
+                                chat_id=TELEGRAM_CHAT_ID, text=text)
+                            logger.debug('Message was sent second time')
+                            raise Exception('error')
+                        except Exception as error:
+                            logging.error(f'Error {error}')
+
+                        previous_status = current_status
 
             except Exception as error:
                 logging.error(f'{error}')
