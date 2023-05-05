@@ -12,9 +12,9 @@ import json
 load_dotenv()
 
 
-PRACTICUM_TOKEN = os.getenv('token_practicum')
-TELEGRAM_TOKEN = os.getenv('bot_token')
-TELEGRAM_CHAT_ID = os.getenv('chat_id')
+PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -127,9 +127,7 @@ def main():
                 if response:
                     current_status = response['homeworks']
 
-                    if current_status == previous_status:
-                        text = "Status didn't change"
-                    elif current_status != previous_status:
+                    if current_status != previous_status:
                         bot = Bot(token=TELEGRAM_TOKEN)
                         homework = current_status[0]
                         text = parse_status(homework)
