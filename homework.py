@@ -66,7 +66,6 @@ def send_message(bot, message):
 
     except Exception as error:
         logger.error(f'Message sending error {error}')
-        return False
 
 
 def get_api_answer(timestamp):
@@ -136,16 +135,10 @@ def main():
                         homework = current_status[0]
                         text = parse_status(homework)
                         send_message(bot, text)
-
-                        try:
-                            bot.send_message(
-                                chat_id=TELEGRAM_CHAT_ID, text=text)
-                            logger.debug('Message was sent second time')
-                            raise Exception('error')
-                        except telegram.TelegramError as error:
-                            logging.error(f'Error sending message: {error}')
-
-                            previous_status = current_status
+                        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text)
+                        logger.debug('Message was sent second time')
+                        raise Exception('error')
+                previous_status = current_status
 
             except Exception as error:
                 logging.error(f'Error during main loop: {error}')
