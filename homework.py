@@ -62,10 +62,10 @@ def send_message(bot, message):
     """Function for sending message."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logger.debug('Сообщение отправлено')
+        logger.debug('Message sent')
 
     except Exception as error:
-        logger.error(f'При отправке сообщения произошла ошибка {error}')
+        logger.error(f'Message sending error {error}')
         return False
 
 
@@ -134,25 +134,20 @@ def main():
                         homework = current_status[0]
                         text = parse_status(homework)
                         send_message(bot, text)
+
                         try:
-                            bot.send_message(
-                                chat_id=TELEGRAM_CHAT_ID, text=text)
+                            bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text)
                             logger.debug('Message was sent second time')
                             raise Exception('error')
-                        except Exception as error:
-                            logging.error(f'Error {error}')
+                        except telegram.TelegramError as error:
+                            logging.error(f'Error sending message: {error}')
 
-                        previous_status = current_status
+                            previous_status = current_status
 
             except Exception as error:
-                logging.error(f'{error}')
+                logging.error(f'Error during main loop: {error}')
 
-            except telegram.TelegramError as e:
-                message_error = f"Message wasn't sent {e}"
-                logger.error(message_error)
-
-            finally:
-                time.sleep(RETRY_PERIOD)
+            time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
