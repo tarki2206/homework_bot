@@ -1,13 +1,14 @@
-from dotenv import load_dotenv
-from http import HTTPStatus
 import logging
-from logging.handlers import RotatingFileHandler
 import os
-from telegram import Bot
 import time
-import requests
-import json
 
+from http import HTTPStatus
+from logging.handlers import RotatingFileHandler
+
+import requests
+
+from dotenv import load_dotenv
+from telegram import Bot, TelegramError
 
 load_dotenv()
 
@@ -50,21 +51,16 @@ def check_tokens():
     """Function for checking tokens."""
     check_tokens_fun = all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
     if check_tokens_fun:
-        return True
+        logger.info('All tokens exist')
     if not check_tokens_fun:
-        message_error = 'No, tokens'
-        logger.critical(message_error)
-        return False
+        logger.critical('No, tokens')
+        raise Exception('No, tokens')
 
 
 def send_message(bot, message):
     """Function for sending message."""
-    try:
-        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logger.debug('Message sent')
-
-    except Exception as error:
-        logger.error(f'Message sending error {error}')
+    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    logger.debug('Message sent')
 
 
 def get_api_answer(timestamp):
@@ -74,73 +70,70 @@ def get_api_answer(timestamp):
         homework = requests.get(url=ENDPOINT, headers=HEADERS, params=params)
         status_code = homework.status_code
         if status_code != HTTPStatus.OK:
-            message_error = 'Wrong response'
-            raise Exception(message_error)
+            raise Exception('Wrong response')
         return homework.json()
     except requests.exceptions.RequestException:
-        message_error = 'Request Exception'
-        raise Exception(message_error)
-    except json.JSONDecodeError:
-        message_error = 'Problem with json'
-        raise Exception(message_error)
+        raise Exception('Request Exception')
 
 
 def check_response(response):
     """Function for checking response."""
-    if type(response) != dict:
+    if not isinstance(response, dict):
+        logger.error('Wrong type')
         raise TypeError('Wrong type')
-    homework_statuses = response.get('homeworks')
-    if (type(homework_statuses) != list) or\
-            (type(homework_statuses[0]) != dict):
+    homeworks = response.get('homeworks')
+    if not isinstance(homeworks, list):
+        logger.error('Wrong type')
         raise TypeError('Wrong type')
-    else:
-        return []
 
 
 def parse_status(homework):
     """Function for parsing status."""
-    try:
-        homework_name = homework.get('homework_name')
-        homework_status = homework.get('status')
-        result = HOMEWORK_VERDICTS[homework_status]
-        if homework_status not in HOMEWORK_VERDICTS:
-            raise KeyError(f'Invalid homework status: {homework_status}')
-        if homework_name is None:
-            raise Exception('Wrong response')
-        return f'Изменился статус проверки работы "{homework_name}". {result}'
-
-    except KeyError as error:
-        logging.error(f'Error {error}')
-        raise Exception(KeyError)
+    homework_name = homework.get('homework_name')
+    homework_status = homework.get('status')
+    if homework_status not in HOMEWORK_VERDICTS:
+        raise KeyError('Undefined status homework')
+    if homework_name is None:
+        raise KeyError('Name field is empty')
+    if homework_status is None:
+        raise KeyError('Status field is empty')
+    result = HOMEWORK_VERDICTS[homework_status]
+    return f'Изменился статус проверки работы "{homework_name}". {result}'
 
 
 def main():
     """Main function."""
-    if not check_tokens():
-        exit()
-    else:
-        previous_status = []
-        while True:
-            try:
-                response = get_api_answer(timestamp)
-                check_response(response)
-                if response:
-                    current_status = response['homeworks']
+    check_tokens()
+    previous_status = []
+    while True:
+        try:
+            response = get_api_answer(timestamp)
+            check_response(response)
+            if response:
+                homeworks_list = response['homeworks']
 
-                    if current_status != previous_status:
-                        bot = Bot(token=TELEGRAM_TOKEN)
-                        homework = current_status[0]
-                        text = parse_status(homework)
-                        send_message(bot, text)
-                        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text)
-                        logger.debug('Message was sent second time')
-                        raise Exception('error')
-                previous_status = current_status
+                if homeworks_list != previous_status:
+                    bot = Bot(token=TELEGRAM_TOKEN)
+                    homework, *other = homeworks_list
+                    status_homework = parse_status(homework)
+                    send_message(bot, status_homework)
+                if homeworks_list is None:
+                    logger.info('List is empty')
+                try:
+                    bot.send_message(
+                        chat_id=TELEGRAM_CHAT_ID,
+                        text=status_homework)
+                    logger.debug('Message was sent second time')
+                except TelegramError as e:
+                    logger.error(f'Error {e}')
+                except Exception as e:
+                    logger.error(f'Error {e}')
+                previous_status = homeworks_list
 
-            except Exception as error:
-                logging.error(f'Error during main loop: {error}')
+        except Exception as error:
+            logging.error(f'Error during main loop: {error}')
 
-            time.sleep(RETRY_PERIOD)
+        time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
