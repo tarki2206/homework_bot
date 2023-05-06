@@ -1,12 +1,10 @@
 import logging
 import os
 import time
-
 from http import HTTPStatus
 from logging.handlers import RotatingFileHandler
 
 import requests
-
 from dotenv import load_dotenv
 from telegram import Bot, TelegramError
 
@@ -49,7 +47,11 @@ handler.setFormatter(formatter)
 
 def check_tokens():
     """Function for checking tokens."""
-    check_tokens_fun = all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
+    check_tokens_fun = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
+    for i in check_tokens_fun:
+        if not i:
+            logger.critical(f'No, token {i}')
+            raise Exception(f'No, token {i}')
     if check_tokens_fun:
         logger.info('All tokens exist')
     if not check_tokens_fun:
@@ -67,11 +69,12 @@ def get_api_answer(timestamp):
     """Function for getting api answer."""
     params = {'from_date': timestamp}
     try:
-        homework = requests.get(url=ENDPOINT, headers=HEADERS, params=params)
-        status_code = homework.status_code
-        if status_code != HTTPStatus.OK:
-            raise Exception('Wrong response')
-        return homework.json()
+        homework_data = requests.get(
+            url=ENDPOINT, headers=HEADERS,
+            params=params)
+        if homework_data.status_code != HTTPStatus.OK:
+            raise Exception(f'Wrong response {homework_data.status_code}')
+        return homework_data.json()
     except requests.exceptions.RequestException:
         raise Exception('Request Exception')
 
@@ -79,12 +82,12 @@ def get_api_answer(timestamp):
 def check_response(response):
     """Function for checking response."""
     if not isinstance(response, dict):
-        logger.error('Wrong type')
-        raise TypeError('Wrong type')
+        logger.error(f'Was expected dict type, {type(response)}')
+        raise TypeError(f'Was expected dict type, {type(response)}')
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
-        logger.error('Wrong type')
-        raise TypeError('Wrong type')
+        logger.error(f'Was expected list type, {type(homeworks)}')
+        raise TypeError(f'Was expected list type, {type(homeworks)}')
 
 
 def parse_status(homework):
@@ -97,7 +100,8 @@ def parse_status(homework):
         raise KeyError('Name field is empty')
     if homework_status is None:
         raise KeyError('Status field is empty')
-    result = HOMEWORK_VERDICTS[homework_status]
+    if homework_name and homework_status:
+        result = HOMEWORK_VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {result}'
 
 
@@ -109,27 +113,23 @@ def main():
         try:
             response = get_api_answer(timestamp)
             check_response(response)
-            if response:
+            if isinstance(response, dict):
                 homeworks_list = response['homeworks']
-
-                if homeworks_list != previous_status:
+                homework, *_ = homeworks_list
+                if homeworks_list[-1] != previous_status:
                     bot = Bot(token=TELEGRAM_TOKEN)
-                    homework, *other = homeworks_list
                     status_homework = parse_status(homework)
                     send_message(bot, status_homework)
-                if homeworks_list is None:
+                if not homeworks_list:
                     logger.info('List is empty')
-                try:
+                if homeworks_list:
                     bot.send_message(
                         chat_id=TELEGRAM_CHAT_ID,
                         text=status_homework)
                     logger.debug('Message was sent second time')
-                except TelegramError as e:
-                    logger.error(f'Error {e}')
-                except Exception as e:
-                    logger.error(f'Error {e}')
-                previous_status = homeworks_list
-
+                    previous_status = homeworks_list
+        except TelegramError as e:
+            logger.error(f'Error {e}')
         except Exception as error:
             logging.error(f'Error during main loop: {error}')
 
