@@ -80,7 +80,7 @@ target/
 # IPython
 profile_default/
 ipython_config.py
-testing_bot.py
+
 
 # pyenv
 .python-version

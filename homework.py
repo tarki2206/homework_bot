@@ -47,16 +47,15 @@ handler.setFormatter(formatter)
 
 def check_tokens():
     """Function for checking tokens."""
-    check_tokens_fun = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
-    for i in check_tokens_fun:
-        if not i:
-            logger.critical(f'No, token {i}')
-            raise Exception(f'No, token {i}')
+    check_tokens_fun = {'practicum': PRACTICUM_TOKEN,
+                        'telegram': TELEGRAM_TOKEN,
+                        'chat_id': TELEGRAM_CHAT_ID}
+    for name, token in check_tokens_fun.items():
+        if not token:
+            logger.critical(f'No, token {name}')
+            exit()
     if check_tokens_fun:
         logger.info('All tokens exist')
-    if not check_tokens_fun:
-        logger.critical('No, tokens')
-        raise Exception('No, tokens')
 
 
 def send_message(bot, message):
@@ -81,19 +80,25 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Function for checking response."""
+    info_message = f'Was expected dict type, {type(response)}'
     if not isinstance(response, dict):
-        logger.error(f'Was expected dict type, {type(response)}')
-        raise TypeError(f'Was expected dict type, {type(response)}')
+        logger.error(info_message)
+        raise TypeError(info_message)
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
-        logger.error(f'Was expected list type, {type(homeworks)}')
-        raise TypeError(f'Was expected list type, {type(homeworks)}')
+        info_message2 = f'Was expected list type, {type(homeworks)}'
+        logger.error(info_message2)
+        raise TypeError(info_message2)
 
 
 def parse_status(homework):
     """Function for parsing status."""
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
+    keys = {'name': homework_name, 'status': homework_name}
+    for name, value in keys.items():
+        if not value:
+            logger.error(f'No key {name}')
     if homework_status not in HOMEWORK_VERDICTS:
         raise KeyError('Undefined status homework')
     if homework_name is None:
@@ -113,21 +118,18 @@ def main():
         try:
             response = get_api_answer(timestamp)
             check_response(response)
-            if isinstance(response, dict):
-                homeworks_list = response['homeworks']
-                homework, *_ = homeworks_list
-                if homeworks_list[-1] != previous_status:
-                    bot = Bot(token=TELEGRAM_TOKEN)
-                    status_homework = parse_status(homework)
-                    send_message(bot, status_homework)
-                if not homeworks_list:
-                    logger.info('List is empty')
-                if homeworks_list:
-                    bot.send_message(
-                        chat_id=TELEGRAM_CHAT_ID,
-                        text=status_homework)
-                    logger.debug('Message was sent second time')
-                    previous_status = homeworks_list
+            homeworks_list = response['homeworks']
+            homework, *_ = homeworks_list
+            status_homework = parse_status(homework)
+            if status_homework != previous_status:
+                bot = Bot(token=TELEGRAM_TOKEN)
+                send_message(bot, status_homework)
+            if homeworks_list:
+                bot.send_message(
+                    chat_id=TELEGRAM_CHAT_ID,
+                    text=status_homework)
+                logger.debug('Message was sent second time')
+                previous_status = homeworks_list
         except TelegramError as e:
             logger.error(f'Error {e}')
         except Exception as error:
