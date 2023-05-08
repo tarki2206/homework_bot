@@ -54,8 +54,6 @@ def check_tokens():
         if not token:
             logger.critical(f'No, token {name}')
             exit()
-    if check_tokens_fun:
-        logger.info('All tokens exist')
 
 
 def send_message(bot, message):
@@ -80,32 +78,34 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Function for checking response."""
-    info_message = f'Was expected dict type, {type(response)}'
     if not isinstance(response, dict):
+        info_message = f'Was expected dict type, {type(response)}'
         logger.error(info_message)
         raise TypeError(info_message)
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
-        info_message2 = f'Was expected list type, {type(homeworks)}'
-        logger.error(info_message2)
-        raise TypeError(info_message2)
+        second_info_message = f'Was expected list type, {type(homeworks)}'
+        logger.error(second_info_message)
+        raise TypeError(second_info_message)
 
 
 def parse_status(homework):
     """Function for parsing status."""
+    keys = {'name': homework.get('homework_name'),
+            'status': homework.get('status')}
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
-    keys = {'name': homework_name, 'status': homework_name}
     for name, value in keys.items():
         if not value:
-            logger.error(f'No key {name}')
+            info_message = f'No key {name}'
+            logger.error(info_message)
+            raise KeyError(info_message)
     if homework_status not in HOMEWORK_VERDICTS:
         raise KeyError('Undefined status homework')
-    if homework_name is None:
+    if not homework_name:
         raise KeyError('Name field is empty')
-    if homework_status is None:
-        raise KeyError('Status field is empty')
     if homework_name and homework_status:
+        logger.info('Keys was getting')
         result = HOMEWORK_VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {result}'
 
@@ -121,15 +121,15 @@ def main():
             homeworks_list = response['homeworks']
             homework, *_ = homeworks_list
             status_homework = parse_status(homework)
-            if status_homework != previous_status:
-                bot = Bot(token=TELEGRAM_TOKEN)
-                send_message(bot, status_homework)
             if homeworks_list:
-                bot.send_message(
-                    chat_id=TELEGRAM_CHAT_ID,
-                    text=status_homework)
-                logger.debug('Message was sent second time')
-                previous_status = homeworks_list
+                if status_homework != previous_status:
+                    bot = Bot(token=TELEGRAM_TOKEN)
+                    send_message(bot, status_homework)
+                    bot.send_message(
+                        chat_id=TELEGRAM_CHAT_ID,
+                        text=status_homework)
+                    logger.debug('Message was sent second time')
+                    previous_status = homeworks_list
         except TelegramError as e:
             logger.error(f'Error {e}')
         except Exception as error:
